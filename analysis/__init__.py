@@ -1,1 +1,2 @@
 from .ip_weighting import compute_effects_ip_weighting
+from .standardization import compute_effects_standardization
