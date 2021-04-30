@@ -2,6 +2,11 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
+from .preprocessing import polynomialize_data
+
+
+# Degree of polynomial and interaction features
+POLYNOMIAL_DEGREE = 2
 
 # Logistic regression options
 PENALTY_NONE = 'none'
@@ -13,6 +18,7 @@ MAX_ITER = 100
 def compute_effects_ip_weighting(
     data: pd.DataFrame,
     stabilize_ip_weights=True,
+    polynomial_degree=POLYNOMIAL_DEGREE,
     logreg_penalty=PENALTY_NONE,
     logreg_solver=SOLVER_LBFGS,
     logreg_tol=TOL,
@@ -29,7 +35,13 @@ def compute_effects_ip_weighting(
     '''
     Y: pd.Series = data.iloc[:, 0]
     A: pd.Series = data.iloc[:, 1]
-    L = data.drop(columns=[Y.name, A.name])
+
+    # Polynomialize the covariates
+    poly_data = data.copy()
+    polynomialize_data(poly_data, degree=polynomial_degree, include_A=False)
+
+    # The polynomialized covariate columns
+    L = poly_data.drop(columns=[Y.name, A.name])
 
     # Predicted class probabilities for each sample
     # shape: (n_samples, n_classes)
@@ -63,20 +75,3 @@ def compute_effects_ip_weighting(
         results.append(np.average(outcomes, weights=weights))
 
     return results
-
-
-def _construct_test_dataset():
-    '''Creates a test dataset based on Table 2.2 in Hernan-Robins text.'''
-    data = {
-        'Y': [0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-        'A': [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        'L1': [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        # 'L2': [0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1],
-        # 'L3': [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0]
-    }
-    index = [
-        'Rheia', 'Kronos', 'Demeter', 'Hades', 'Hestia', 'Poseidon', 'Hera',
-        'Zeus', 'Artemis', 'Apollo', 'Leto', 'Ares', 'Athena', 'Hephaestus',
-        'Aphrodite', 'Cyclope', 'Persephone', 'Hermes', 'Hebe', 'Dionysus'
-    ]
-    return pd.DataFrame(data=data, index=index)

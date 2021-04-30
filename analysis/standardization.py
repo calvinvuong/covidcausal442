@@ -2,8 +2,17 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
+from .preprocessing import polynomialize_data
 
-def compute_effects_standardization(data: pd.DataFrame):
+
+# Degree of polynomial and interaction features
+POLYNOMIAL_DEGREE = 2
+
+
+def compute_effects_standardization(
+    data: pd.DataFrame,
+    polynomial_degree=POLYNOMIAL_DEGREE
+):
     '''
     Returns a list of results for E[Y | A = a] for increasing values of a using
     parametric Standardization.
@@ -16,8 +25,12 @@ def compute_effects_standardization(data: pd.DataFrame):
     Y: pd.Series = data.iloc[:, 0]
     A: pd.Series = data.iloc[:, 1]
 
+    # Polynomialize the covariates and treatment
+    poly_data = data.copy()
+    polynomialize_data(poly_data, degree=polynomial_degree, include_A=True)
+
     # Inputs to regression (treatment columns A and covariate columns L)
-    AL = data.drop(columns=[Y.name])
+    AL = poly_data.drop(columns=[Y.name])
     # Fit regression to Y
     linreg = LinearRegression().fit(AL, Y)
 
@@ -26,26 +39,14 @@ def compute_effects_standardization(data: pd.DataFrame):
     results = []
     for a in np.sort(A.unique()):
         # Create new data with uniform treatment value A = a
-        AL_a = data.drop(columns=[Y.name, A.name])
-        AL_a.insert(0, A.name, np.full(A.shape, a))
+        data_a = data.copy()
+        data_a[A.name] = np.full(A.shape, a)
+        # Polynomialize data
+        polynomialize_data(data_a, degree=polynomial_degree, include_A=True)
+
+        # Get only treatment and covariate columns for prediction
+        AL_a = data_a.drop(columns=[Y.name])
         # Mean outcome in new data is standardized mean outcome
         results.append(np.mean(linreg.predict(AL_a)))
 
     return results
-
-
-def _construct_test_dataset():
-    '''Creates a test dataset based on Table 2.2 in Hernan-Robins text.'''
-    data = {
-        'Y': [0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-        'A': [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        'L1': [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        # 'L2': [0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1],
-        # 'L3': [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0]
-    }
-    index = [
-        'Rheia', 'Kronos', 'Demeter', 'Hades', 'Hestia', 'Poseidon', 'Hera',
-        'Zeus', 'Artemis', 'Apollo', 'Leto', 'Ares', 'Athena', 'Hephaestus',
-        'Aphrodite', 'Cyclope', 'Persephone', 'Hermes', 'Hebe', 'Dionysus'
-    ]
-    return pd.DataFrame(data=data, index=index)
