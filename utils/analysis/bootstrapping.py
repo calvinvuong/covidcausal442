@@ -27,15 +27,18 @@ def bootstrap(
         (E[Y | A = 0], E[Y | A = 1])
     for each sample.
     '''
+    boostrap_data = data.copy()
+    # Standardize the covariates if specified
+    if standardize:
+        standardize_data(boostrap_data)
+
     results = []
 
     for _ in np.arange(n_samples):
         # Generate random bootstrap sample
-        sample = data.sample(frac=1, replace=True).reset_index(drop=True)
-
-        # Standardize the covariates if specified
-        if standardize:
-            standardize_data(sample)
+        sample = boostrap_data.sample(
+            frac=1, replace=True
+        ).reset_index(drop=True)
 
         # Function returns (E[Y | A = 0], E[Y | A = 1])
         results.append(compute_effects_func(sample))
