@@ -4,9 +4,11 @@ from utils.analysis.bootstrapping import DIFFERENCE, RATIO
 from utils import *
 
 # OUTCOME_VAR = 'Sick'
-OUTCOME_VAR = 'Spread'
-# TREATMENT_VAR = 'DistancingGrade'
+#OUTCOME_VAR = 'Spread'
+OUTCOME_VAR = 'NewCases14Pop'
+#TREATMENT_VAR = 'DistancingGrade'
 TREATMENT_VAR = 'retail_and_recreation_percent_change_from_baseline'
+
 COVARIATES = [
     'SVISocioeconomic',
     'SVIHousing',
@@ -18,6 +20,8 @@ COVARIATES = [
     'Smoking',
     'Diabetes'
 ]
+
+
 TREATMENT_CUTOFF = 5.0
 
 # Default options
@@ -58,10 +62,11 @@ if __name__ == '__main__':
     effect_func = effect_func_ipw if args.method == 'ipw' else effect_func_std
 
     # Put data into a Pandas DF
-    data = generate_DF('data/', OUTCOME_VAR, TREATMENT_VAR, COVARIATES)
+    data = generate_DF('data/', 'population_data.csv', OUTCOME_VAR, TREATMENT_VAR, COVARIATES)
+
     # Assign DistancingGrade < 5.0 to positive treatment (1),
     # DistancingGrade == 5.0 to no treatment (0)
-    # treatment_cutoff = TREATMENT_CUTOFF
+    #treatment_cutoff = TREATMENT_CUTOFF
     treatment_cutoff = data[TREATMENT_VAR].median()
     dichotomize_treatment(data, TREATMENT_VAR, treatment_cutoff)
 
