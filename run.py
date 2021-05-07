@@ -3,12 +3,9 @@ from functools import partial
 from utils.analysis.bootstrapping import DIFFERENCE, RATIO
 from utils import *
 
-# OUTCOME_VAR = 'Sick'
-#OUTCOME_VAR = 'Spread'
 OUTCOME_VAR = 'NewCases14Pop'
-#TREATMENT_VAR = 'DistancingGrade'
 TREATMENT_VAR = 'retail_and_recreation_percent_change_from_baseline'
-
+# Covariates to adjust on
 COVARIATES = [
     'SVISocioeconomic',
     'SVIHousing',
@@ -21,8 +18,6 @@ COVARIATES = [
     'Diabetes'
 ]
 
-
-TREATMENT_CUTOFF = 5.0
 
 # Default options
 POLYNOMIAL_DEGREE = 2
@@ -57,27 +52,39 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('method', choices=['ipw', 'std'])
     parser.add_argument('samples', type=int)
+    parser.add_argument('treatment', nargs='?', default=TREATMENT_VAR)
+    parser.add_argument('outcome', nargs='?', default=OUTCOME_VAR)
     args = parser.parse_args()
 
     effect_func = effect_func_ipw if args.method == 'ipw' else effect_func_std
 
-    # Put data into a Pandas DF
-    data = generate_DF('data/', 'population_data.csv', OUTCOME_VAR, TREATMENT_VAR, COVARIATES)
 
-    # Assign DistancingGrade < 5.0 to positive treatment (1),
-    # DistancingGrade == 5.0 to no treatment (0)
-    #treatment_cutoff = TREATMENT_CUTOFF
-    treatment_cutoff = data[TREATMENT_VAR].median()
-    dichotomize_treatment(data, TREATMENT_VAR, treatment_cutoff)
+    # Put data into a Pandas DF and manipulate
+    data = generate_DF('data/', 'population_data.csv', args.outcome, args.treatment, COVARIATES)
 
+    # Change treatment variable into discrete values
+    treatment_cutoff = data[args.treatment].median()
+    if 'change_from_baseline' in args.treatment:
+        # For this treatment, values > cutoff are considered untreated
+        dichotomize_treatment(data, args.treatment, treatment_cutoff, gt_treatment=0)
+    else:
+        # For all other treatments, values > cutoff are considered treated
+        dichotomize_treatment(data, args.treatment, treatment_cutoff, gt_treatment=1)
+
+    # Compute causal expectations
     effect_results = bootstrap(
         data, effect_func, n_samples=args.samples, standardize=True
     )
 
+    # Compute effect measures
     diff = compute_effect_measure(effect_results, effect_measure=DIFFERENCE)
     ratio = compute_effect_measure(effect_results, effect_measure=RATIO)
 
-    print('\nMethod:', args.method)
+    # Print results
+    print("\nTreatment:", args.treatment)
+    print("Outcome:", args.outcome)
+    print('Method:', args.method)
     print('Bootstrap Samples:', args.samples)
     print('\nDifference:', diff)
-    print('\nRatio:', ratio)
+    print('Ratio:', ratio)
+    print('--------------------------------------------------------------------------------------------')
